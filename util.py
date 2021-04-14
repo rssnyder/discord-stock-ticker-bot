@@ -1,9 +1,10 @@
 import logging
 from os import getenv
 from sqlite3 import connect
+from json import dumps
 
 import docker
-from requests import get, patch
+from requests import get, patch, post
 from discord_webhook import DiscordWebhook, DiscordEmbed
 
 
@@ -102,36 +103,31 @@ def notify_discord(ticker: str, client_id: str) -> int:
     return discord_msg.execute().status_code
 
 
-def create_bot(type: str, ticker: str, name: str, client_id: str, token: str):
+def create_bot(ticker: str, name: str, client_id: str, token: str, is_crypto: bool) -> bool:
     '''
     Create a new bot instance
     Returns a container instance of the bot
     '''
 
-    docker_name = ticker.replace('^', '_').replace('=', '_')
+    data = {
+        "ticker": ticker,
+        "name": name,
+        "crypto": is_crypto,
+        "frequency": 90,
+        "discord_bot_token": token
+    }
 
-    client = docker.from_env()
+    print(data)
 
-    instance = client.containers.run(
-        image=getenv('IMAGE_NAME'),
-        name=f'ticker-{docker_name}',
-        detach=True,
-        environment={
-            'DISCORD_BOT_TOKEN': token,
-            'TICKER': ticker,
-            f'{type}_NAME': name,
-            'FREQUENCY': 30,
-            'TZ': 'America/Chicago',
-            'REDIS_URL': 'cache'
-        }
+    resp = post(
+        f'http://{getenv("URL")}/ticker',
+        data=dumps(data)
     )
 
-    if not change_bot_username(token, ticker):
-        log(f'unable to change the name for {name}')
-
-    notify_admin_docker(ticker, docker_name, name, client_id, token)
-
-    return instance
+    if resp.status_code == 204:
+        return True
+    else:
+        return False
 
 
 def crypto_validate(id: str) -> tuple:
@@ -284,15 +280,15 @@ def crypto(id: str):
 
     # Create new bot instance
     log(f'attempting to create new bot: {id}')
-    container = create_bot(
-        'CRYPTO',
+    success = create_bot(
         crypto_details[1],
         crypto_details[0],
         bot_details[0],
-        bot_details[1]
+        bot_details[1],
+        True
     )
 
-    if container:
+    if success:
         if getenv('DISCORD_WEBHOOK'):
             notify_discord(crypto_details[0], bot_details[0])
 
@@ -328,15 +324,15 @@ def stock(id: str):
 
     # Create new bot instance
     log(f'attempting to create new bot: {id}')
-    container = create_bot(
-        'STOCK',
+    success = create_bot(
         stock_details[1],
         stock_details[0],
         bot_details[0],
-        bot_details[1]
+        bot_details[1],
+        False
     )
 
-    if container:
+    if success:
         if getenv('DISCORD_WEBHOOK'):
             notify_discord(stock_details[0], bot_details[0])
 

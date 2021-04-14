@@ -4,7 +4,7 @@ from os import getenv
 import discord
 from requests import get
 
-from util import stock, crypto, add_bot, add_private_bot
+from util import stock, crypto, add_bot, add_private_bot, restart_stack
 
 TICKER_TYPES = [
     'stock',
@@ -62,7 +62,7 @@ class DiscordStockTickerBot(discord.Client):
                 else:
                     await message.reply('Unable to add new bot.', mention_author=True)
                     return
-                
+
         if message.content.startswith('!ticker'):
 
             opts = message.content.split(' ')
