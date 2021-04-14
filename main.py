@@ -4,7 +4,7 @@ from os import getenv
 import discord
 from requests import get
 
-from util import stock, crypto, add_bot, add_private_bot, restart_stack
+from util import stock, crypto, add_bot, add_private_bot
 
 TICKER_TYPES = [
     'stock',
