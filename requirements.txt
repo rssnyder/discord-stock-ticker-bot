@@ -1,2 +1,6 @@
 discord
 requests
+docker
+fastapi
+uvicorn[standard]
+discord-webhook==0.12.0
