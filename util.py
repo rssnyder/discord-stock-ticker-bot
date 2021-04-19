@@ -173,6 +173,10 @@ def stock_validate(id: str) -> tuple:
         logging.error(f'not a valid ticker: {id}')
         return None
 
+    if 'currencySymbol' not in data['quoteSummary']['result'][0]['price']:
+        logging.error(f'not a valid ticker: {id}')
+        return None
+
     symbol = data['quoteSummary']['result'][0]['price']['symbol'].lower()
     return (symbol, symbol)
 
