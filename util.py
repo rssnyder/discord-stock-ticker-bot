@@ -125,6 +125,7 @@ def create_bot(ticker: str, name: str, client_id: str, token: str, is_crypto: bo
     )
 
     if resp.status_code == 204:
+        change_bot_username(token, name)
         return True
     else:
         return False
