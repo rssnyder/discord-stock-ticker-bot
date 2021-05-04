@@ -62,7 +62,7 @@ class DiscordStockTickerBot(discord.Client):
                 else:
                     await message.reply('Unable to add new bot.', mention_author=True)
                     return
-                
+
         if message.content.startswith('!ticker'):
 
             opts = message.content.split(' ')
