@@ -4,7 +4,7 @@ from os import getenv
 import discord
 from requests import get
 
-from util import stock, crypto, add_bot, add_private_bot
+from util import stock, crypto, crypto_search, add_bot, add_private_bot
 
 TICKER_TYPES = [
     'stock',
@@ -93,6 +93,22 @@ class DiscordStockTickerBot(discord.Client):
             elif resp.get('client_id'):
                 await message.reply(f'new ticker created! {invite_url(resp.get("client_id"))}', mention_author=True)
                 return
+        
+        if message.content.startswith('!search'):
+
+            opts = message.content.split(' ')
+            logging.info(opts)
+
+            if len(opts) < 2:
+                await message.reply('usage: !search <crypto>', mention_author=True)
+                return
+
+            cryptos = opts[1]
+
+            results = crypto_search(cryptos)
+
+            await message.reply(f'possible coins: {", ".join(results)}', mention_author=True)
+            return
 
 
 if __name__ == "__main__":
