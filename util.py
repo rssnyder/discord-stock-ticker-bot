@@ -134,6 +134,27 @@ def create_bot(type: str, ticker: str, name: str, client_id: str, token: str):
     return instance
 
 
+def crypto_search(key: str) -> list:
+    '''
+    Search for a crypto
+    Returns a list of possible ids
+    '''
+
+    resp = get(
+        COINGECKO_URL + 'coins/list',
+        headers=HEADERS
+    )
+
+    try:
+        resp.raise_for_status()
+        data = resp.json()
+    except:
+        logging.error('Bad response from CG')
+        return ()
+
+    return [x['id'] for x in data if key in x['id'] or key in x['symbol'] or key in x['name']]
+
+
 def crypto_validate(id: str) -> tuple:
     '''
     Validate a crypto ticker
