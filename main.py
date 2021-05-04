@@ -107,7 +107,7 @@ class DiscordStockTickerBot(discord.Client):
 
             results = crypto_search(cryptos)
 
-            await message.reply(f'possible coins: {results}', mention_author=True)
+            await message.reply(f'possible coins: {", ".join(results)}', mention_author=True)
             return
 
 
