@@ -14,16 +14,12 @@ eg: `!ticker stock pfg`
 
 eg: `!ticker crypto bitcoin`
 
+`!search <crypto name>`
+
+eg: `!search bitcoin`
+
 ## admin commands
 
 add a new empty bot to the db
 
 `!newbot <client_id> <token>`
-
-add a new bot to a premium user's db
-
-`!addprivatebot <client> <client_id> <token> <ticker> <type>`
-
-restart a stack
-
-`!restart <stack name>`
