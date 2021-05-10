@@ -61,48 +61,6 @@ def change_bot_username(token: str, username: str):
     return resp.json().get('username')
 
 
-def notify_admin_docker(symbol: str, symbol_safe: str, name: str, client_id: str,  token: str):
-    '''
-    Send message to the admins with compose information
-    '''
-
-    # Compose information
-    message = f'  ticker-{symbol_safe}:\n'
-    message += '    image: ghcr.io/rssnyder/discord-stock-ticker:1.5.1\n    restart: unless-stopped\n    links:\n      - redis\n'
-    message += f'    container_name: ticker-{symbol_safe}\n'
-    message += '    environment:\n'
-    message += f'      - DISCORD_BOT_TOKEN={token}\n'
-    message += f'      - TICKER={symbol}\n'
-    message += f'      - STOCK_NAME={name}\n'
-    message += '      - FREQUENCY=30\n      - TZ=America/Chicago\n      - REDIS_URL=redis\n\n\n'
-
-    # Readme information
-    message += f'`[![{symbol}](https://logo.clearbit.com/xxxxxxx.com)]'
-    message += f'(https://discord.com/api/oauth2/authorize?client_id={client_id}&permissions=0&scope=bot)`\n'
-
-    log(message)
-
-
-def notify_discord(ticker: str, client_id: str) -> int:
-    '''
-    Post new bot to discord server
-    '''
-
-    discord_msg = DiscordWebhook(
-        url=getenv('DISCORD_WEBHOOK')
-    )
-
-    discord_msg.add_embed(
-        DiscordEmbed(
-            title=ticker.upper(),
-            description=f'https://discord.com/api/oauth2/authorize?client_id={client_id}&permissions=0&scope=bot',
-            color='3333ff'
-        )
-    )
-
-    return discord_msg.execute().status_code
-
-
 def create_bot(ticker: str, name: str, client_id: str, token: str, is_crypto: bool) -> bool:
     '''
     Create a new bot instance
@@ -117,13 +75,11 @@ def create_bot(ticker: str, name: str, client_id: str, token: str, is_crypto: bo
         "discord_bot_token": token
     }
 
-    print(data)
-
     resp = post(
         f'http://{getenv("URL")}/ticker',
         data=dumps(data)
     )
-
+ticker
     if resp.status_code == 204:
         change_bot_username(token, name)
         return True
@@ -315,9 +271,9 @@ def crypto(id: str):
     )
 
     if success:
-        if getenv('DISCORD_WEBHOOK'):
-            notify_discord(crypto_details[0], bot_details[0])
-
+        log(
+            f'crypto: `[![{stock_details[1]}](https://logo.clearbit.com/{stock_details[1]}.io)](https://discord.com/api/oauth2/authorize?client_id={bot_details[0]}&permissions=0&scope=bot)`'
+        )
         return {'client_id': bot_details[0]}
     else:
         return {'error': 'having trouble starting new bot'}
@@ -359,9 +315,9 @@ def stock(id: str):
     )
 
     if success:
-        if getenv('DISCORD_WEBHOOK'):
-            notify_discord(stock_details[0], bot_details[0])
-
+        log(
+            f'stock: `[![{stock_details[1]}](https://logo.clearbit.com/{stock_details[1]}.io)](https://discord.com/api/oauth2/authorize?client_id={bot_details[0]}&permissions=0&scope=bot)`'
+        )
         return {'client_id': bot_details[0]}
     else:
         return {'error': 'having trouble starting new bot'}
