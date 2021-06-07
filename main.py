@@ -1,10 +1,11 @@
 import logging
 from os import getenv
+from time import sleep
 
 import discord
 from requests import get
 
-from util import stock, crypto, crypto_search, add_bot, add_private_bot
+from util import stock, crypto, crypto_search, add_bot, add_private_bot, change_ticker_photo
 
 TICKER_TYPES = [
     'stock',
@@ -88,10 +89,10 @@ class DiscordStockTickerBot(discord.Client):
                 await message.reply(resp.get('error', 'unknown error'), mention_author=True)
                 return
             elif resp.get('existing') and resp.get('client_id'):
-                await message.reply(f'this ticker already exists! {invite_url(resp.get("client_id"))}', mention_author=True)
+                await message.reply(f'this ticker already exists! <{invite_url(resp.get("client_id"))}>', mention_author=True)
                 return
             elif resp.get('client_id'):
-                await message.reply(f'new ticker created! {invite_url(resp.get("client_id"))}', mention_author=True)
+                await message.reply(f'new ticker created! `to have a logo added, please find one and reply to this message with it attached`: <{invite_url(resp.get("client_id"))}>', mention_author=True)
                 return
         
         if message.content.startswith('!search'):
@@ -109,6 +110,28 @@ class DiscordStockTickerBot(discord.Client):
 
             await message.reply(f'possible coins: {", ".join(results)}', mention_author=True)
             return
+
+
+        if message.content.startswith('!image'):
+            
+            opts = message.content.split(' ')
+            logging.info(opts)
+
+            if len(opts) < 3:
+                await message.reply('usage: !image <stock/crypto> <image url>')
+                return
+
+            ticker = opts[1]
+            url = opts[2]
+
+            result = change_ticker_photo(ticker, url)
+
+            if result:
+                await message.add_reaction('\U00002705')
+                return
+            else:
+                await message.add_reaction('\U0000274E')
+                return
 
 
 if __name__ == "__main__":
