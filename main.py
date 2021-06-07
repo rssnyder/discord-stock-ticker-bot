@@ -92,7 +92,7 @@ class DiscordStockTickerBot(discord.Client):
                 await message.reply(f'this ticker already exists! <{invite_url(resp.get("client_id"))}>', mention_author=True)
                 return
             elif resp.get('client_id'):
-                await message.reply(f'new ticker created! `to have a logo added, please find one and reply to this message with it attached`: <{invite_url(resp.get("client_id"))}>', mention_author=True)
+                await message.reply(f'new ticker created!: <{invite_url(resp.get("client_id"))}>', mention_author=True)
                 return
         
         if message.content.startswith('!search'):
