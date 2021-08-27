@@ -2,9 +2,10 @@ import logging
 from os import getenv
 from sqlite3 import connect
 from json import dumps
+import base64
 
 import docker
-from requests import get, patch, post
+from requests import get, patch, post, auth
 from discord_webhook import DiscordWebhook, DiscordEmbed
 
 
@@ -61,46 +62,31 @@ def change_bot_username(token: str, username: str):
     return resp.json().get('username')
 
 
-def notify_admin_docker(symbol: str, symbol_safe: str, name: str, client_id: str,  token: str):
+def change_bot_photo(token: str, base64_photo: str):
     '''
-    Send message to the admins with compose information
-    '''
-
-    # Compose information
-    message = f'  ticker-{symbol_safe}:\n'
-    message += '    image: ghcr.io/rssnyder/discord-stock-ticker:1.5.1\n    restart: unless-stopped\n    links:\n      - redis\n'
-    message += f'    container_name: ticker-{symbol_safe}\n'
-    message += '    environment:\n'
-    message += f'      - DISCORD_BOT_TOKEN={token}\n'
-    message += f'      - TICKER={symbol}\n'
-    message += f'      - STOCK_NAME={name}\n'
-    message += '      - FREQUENCY=30\n      - TZ=America/Chicago\n      - REDIS_URL=redis\n\n\n'
-
-    # Readme information
-    message += f'`[![{symbol}](https://logo.clearbit.com/xxxxxxx.com)]'
-    message += f'(https://discord.com/api/oauth2/authorize?client_id={client_id}&permissions=0&scope=bot)`\n'
-
-    log(message)
-
-
-def notify_discord(ticker: str, client_id: str) -> int:
-    '''
-    Post new bot to discord server
+    Change the photo of the bot
     '''
 
-    discord_msg = DiscordWebhook(
-        url=getenv('DISCORD_WEBHOOK')
+    resp = patch(
+        'https://discord.com/api/users/@me',
+        headers={
+            'Authorization': f'Bot {token}',
+            'Content-Type': 'application/json'
+        },
+        json={
+            'avatar': base64_photo
+        }
     )
 
-    discord_msg.add_embed(
-        DiscordEmbed(
-            title=ticker.upper(),
-            description=f'https://discord.com/api/oauth2/authorize?client_id={client_id}&permissions=0&scope=bot',
-            color='3333ff'
-        )
-    )
+    try:
+        resp.raise_for_status()
+    except:
+        return False
 
-    return discord_msg.execute().status_code
+    if not resp.json().get('avatar', False):
+        return False
+
+    return True
 
 
 def create_bot(ticker: str, name: str, client_id: str, token: str, is_crypto: bool) -> bool:
@@ -117,17 +103,18 @@ def create_bot(ticker: str, name: str, client_id: str, token: str, is_crypto: bo
         "discord_bot_token": token
     }
 
-    print(data)
-
     resp = post(
-        f'http://{getenv("URL")}/ticker',
+        getenv("URL") + '/ticker',
+        auth=auth.HTTPBasicAuth(getenv('AUTH_USER'), getenv('AUTH_PASS')),
         data=dumps(data)
     )
 
-    if resp.status_code == 204:
+    if resp.status_code == 200:
         change_bot_username(token, name)
         return True
     else:
+        logging.error(str(resp.status_code) + " " + resp.text)
+        log(resp.text)
         return False
 
 
@@ -203,7 +190,7 @@ def stock_validate(id: str) -> tuple:
     return (symbol, symbol)
 
 
-def check_existing_bot(ticker: str) -> str:
+def check_existing_bot(ticker: str):
     '''
     Check if a bot already exists for the given ticker
     Returns the client id of the existing bot
@@ -214,7 +201,7 @@ def check_existing_bot(ticker: str) -> str:
     # Get an unused bot
     get_cur = db_client.cursor()
     get_cur.execute(
-        'SELECT client_id FROM newbots WHERE ticker = ?',
+        'SELECT client_id, token FROM newbots WHERE ticker = ?',
         (ticker,)
     )
 
@@ -228,10 +215,32 @@ def check_existing_bot(ticker: str) -> str:
     db_client.close()
 
     if not existing_bot:
+        logging.info(existing_bot)
         logging.info(f'We already have a bot for {ticker}')
         return None
 
-    return existing_bot[0]
+    return (existing_bot[0], existing_bot[1])
+
+
+def change_ticker_photo(ticker: str, url: str):
+    '''
+    Change profile photo for bot
+    Download given image, format for discord api
+    '''
+
+    # If we already have a bot, return the client id
+    client_id = check_existing_bot(ticker)
+    if not client_id:
+        return False
+
+    # Download photo
+    photo_data = get(url).content
+
+    # base64 encode file
+    photo_encoded = f'data:image/{url.split(".")[-1]};base64,' + base64.b64encode(photo_data).decode('ascii')
+    print(f"photo encoded: {photo_encoded}")
+
+    return change_bot_photo(client_id[1], photo_encoded)
 
 
 def get_new_bot(ticker: str, typ: str) -> tuple:
@@ -243,7 +252,7 @@ def get_new_bot(ticker: str, typ: str) -> tuple:
     # If we already have a bot, return the client id
     client_id = check_existing_bot(ticker)
     if client_id:
-        return (client_id, None)
+        return (client_id[0], None)
 
     db_client = connect(getenv('DB_PATH') + getenv('PUBLIC_DB'))
 
@@ -285,6 +294,12 @@ def crypto(id: str):
     crypto_details = crypto_validate(id.lower())
 
     if not crypto_details:
+        possible_id = check_existing_bot(id.lower())
+        if possible_id:
+            return {
+                'client_id': possible_id[0],
+                'existing': True
+            }
         log(f'unable to validate coin id: {id}')
         return {'error': f'unable to validate coin id: {id}'}
 
@@ -294,7 +309,7 @@ def crypto(id: str):
     # No new bots avalible
     if not bot_details:
         log('no more new bots avalible')
-        return {'error': 'no more new bots avalible'}
+        return {'error': 'there are no more unclaimed bots. come back tomorrow and there might be more available'}
     
     # Bot already existed
     if not bot_details[1]:
@@ -315,9 +330,9 @@ def crypto(id: str):
     )
 
     if success:
-        if getenv('DISCORD_WEBHOOK'):
-            notify_discord(crypto_details[0], bot_details[0])
-
+        log(
+            f'crypto: `[{crypto_details[1]}](https://discord.com/api/oauth2/authorize?client_id={bot_details[0]}&permissions=0&scope=bot)`'
+        )
         return {'client_id': bot_details[0]}
     else:
         return {'error': 'having trouble starting new bot'}
@@ -329,6 +344,12 @@ def stock(id: str):
     stock_details = stock_validate(id.lower())
 
     if not stock_details:
+        possible_id = check_existing_bot(id.lower())
+        if possible_id:
+            return {
+                'client_id': possible_id,
+                'existing': True
+            }
         log(f'unable to validate stock id: {id}')
         return {'error': f'unable to validate stock id: {id}'}
 
@@ -359,9 +380,9 @@ def stock(id: str):
     )
 
     if success:
-        if getenv('DISCORD_WEBHOOK'):
-            notify_discord(stock_details[0], bot_details[0])
-
+        log(
+            f'stock: `[{stock_details[1]}](https://discord.com/api/oauth2/authorize?client_id={bot_details[0]}&permissions=0&scope=bot)`'
+        )
         return {'client_id': bot_details[0]}
     else:
         return {'error': 'having trouble starting new bot'}
@@ -421,3 +442,4 @@ def add_private_bot(db: str, client_id: str, token: str, ticker: str, typ: str) 
     db_client.commit()
 
     return True
+
