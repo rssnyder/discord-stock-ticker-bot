@@ -5,7 +5,7 @@ from json import dumps
 import base64
 
 import docker
-from requests import get, patch, post
+from requests import get, patch, post, auth
 from discord_webhook import DiscordWebhook, DiscordEmbed
 
 
@@ -104,7 +104,8 @@ def create_bot(ticker: str, name: str, client_id: str, token: str, is_crypto: bo
     }
 
     resp = post(
-        f'http://{getenv("URL")}/ticker',
+        getenv("URL") + '/ticker',
+        auth=auth.HTTPBasicAuth(getenv('AUTH_USER'), getenv('AUTH_PASS')),
         data=dumps(data)
     )
 
@@ -112,6 +113,8 @@ def create_bot(ticker: str, name: str, client_id: str, token: str, is_crypto: bo
         change_bot_username(token, name)
         return True
     else:
+        logging.error(str(resp.status_code) + " " + resp.text)
+        log(resp.text)
         return False
 
 
@@ -235,6 +238,7 @@ def change_ticker_photo(ticker: str, url: str):
 
     # base64 encode file
     photo_encoded = f'data:image/{url.split(".")[-1]};base64,' + base64.b64encode(photo_data).decode('ascii')
+    print(f"photo encoded: {photo_encoded}")
 
     return change_bot_photo(client_id[1], photo_encoded)
 
@@ -293,7 +297,7 @@ def crypto(id: str):
         possible_id = check_existing_bot(id.lower())
         if possible_id:
             return {
-                'client_id': possible_id,
+                'client_id': possible_id[0],
                 'existing': True
             }
         log(f'unable to validate coin id: {id}')
@@ -305,7 +309,7 @@ def crypto(id: str):
     # No new bots avalible
     if not bot_details:
         log('no more new bots avalible')
-        return {'error': 'no more new bots avalible'}
+        return {'error': 'there are no more unclaimed bots. come back tomorrow and there might be more available'}
     
     # Bot already existed
     if not bot_details[1]:
@@ -327,7 +331,7 @@ def crypto(id: str):
 
     if success:
         log(
-            f'crypto: `[![{crypto_details[1]}](https://logo.clearbit.com/{crypto_details[1]}.io)](https://discord.com/api/oauth2/authorize?client_id={bot_details[0]}&permissions=0&scope=bot)`'
+            f'crypto: `[{crypto_details[1]}](https://discord.com/api/oauth2/authorize?client_id={bot_details[0]}&permissions=0&scope=bot)`'
         )
         return {'client_id': bot_details[0]}
     else:
@@ -377,7 +381,7 @@ def stock(id: str):
 
     if success:
         log(
-            f'stock: `[![{stock_details[1]}](https://logo.clearbit.com/{stock_details[1]}.io)](https://discord.com/api/oauth2/authorize?client_id={bot_details[0]}&permissions=0&scope=bot)`'
+            f'stock: `[{stock_details[1]}](https://discord.com/api/oauth2/authorize?client_id={bot_details[0]}&permissions=0&scope=bot)`'
         )
         return {'client_id': bot_details[0]}
     else:
@@ -438,3 +442,4 @@ def add_private_bot(db: str, client_id: str, token: str, ticker: str, typ: str) 
     db_client.commit()
 
     return True
+

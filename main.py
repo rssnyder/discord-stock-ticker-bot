@@ -44,26 +44,6 @@ class DiscordStockTickerBot(discord.Client):
                     await message.reply('Unable to add new bot.', mention_author=True)
                     return
             
-            if message.content.startswith('!addprivatebot'):
-
-                opts = message.content.split(' ')
-                logging.info(opts)
-
-                if len(opts) < 6:
-                    await message.reply('usage: !addprivatebot <client> <client_id> <token> <ticker> <type>', mention_author=True)
-                    return
-                
-                if opts[5] not in TICKER_TYPES:
-                    await message.reply(f'valid types: {TICKER_TYPES}', mention_author=True)
-                    return
-                
-                if add_private_bot(opts[1], opts[2], opts[3], opts[4], opts[5]):
-                    await message.reply('Bot added!', mention_author=True)
-                    return
-                else:
-                    await message.reply('Unable to add new bot.', mention_author=True)
-                    return
-
         if message.content.startswith('!ticker'):
 
             opts = message.content.split(' ')
@@ -124,7 +104,7 @@ class DiscordStockTickerBot(discord.Client):
             ticker = opts[1]
             url = opts[2]
 
-            result = change_ticker_photo(ticker, url)
+            result = change_ticker_photo(ticker.lower(), url)
 
             if result:
                 await message.add_reaction('\U00002705')
